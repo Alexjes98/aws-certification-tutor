@@ -9,19 +9,20 @@ import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as iam from "aws-cdk-lib/aws-iam";
 
 export class BackendConstruct extends Construct {
-  public readonly api: apigateway.LambdaRestApi;
+  public readonly sourceDocumentsBucket: s3.Bucket;
+  public readonly questionsTable: dynamodb.Table;
 
-  constructor(scope: Construct, id: string, frontendBucketArn: string) {
+  constructor(scope: Construct, id: string) {
     super(scope, id);
 
-    const sourceDocumentsBucket = new s3.Bucket(this, "SourceDocumentsBucket", {
+    this.sourceDocumentsBucket = new s3.Bucket(this, "SourceDocumentsBucket", {
       versioned: true,
       encryption: s3.BucketEncryption.S3_MANAGED,
       removalPolicy: RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
     });
 
-    const questionsTable = new dynamodb.Table(this, "QuestionsTable", {
+    this.questionsTable = new dynamodb.Table(this, "QuestionsTable", {
       partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
     });
     
