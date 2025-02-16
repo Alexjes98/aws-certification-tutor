@@ -1,7 +1,8 @@
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useState } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 import Chat from "./pages/Chat";
+import Questions from "./pages/Questions";
 
 import SideBar from "./components/SideBar";
 function App() {
@@ -15,16 +16,19 @@ function App() {
   return (
     <>
       <div className="flex row">
-        <SideBar
-          isExpanded={isSidebarExpanded}
-          toggleSidebar={toggleSidebar}
-          chatHistory={chatHistory}
-        />
-        <Router>
-          <Routes>
-            <Route path="/" element={<Chat />} />
-          </Routes>
-        </Router>
+        <div className="flex h-screen w-screen bg-gray-100 overflow-auto">
+          <SideBar
+            isExpanded={isSidebarExpanded}
+            toggleSidebar={toggleSidebar}
+            chatHistory={chatHistory}
+          />
+          <Router>
+            <Routes>
+              <Route path="/" element={<Chat />} />
+              <Route path="/questions" element={<Questions />} />
+            </Routes>
+          </Router>
+        </div>
       </div>
     </>
   );

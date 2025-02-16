@@ -1,6 +1,5 @@
 import type React from "react";
 import { ChevronLeft, ChevronRight, Home, Book, History } from "lucide-react";
-
 interface SidebarProps {
   isExpanded: boolean;
   toggleSidebar: () => void;
@@ -30,7 +29,7 @@ const SideBar: React.FC<SidebarProps> = ({
         <ul>
           <li className="mb-4">
             <a
-              href="#"
+              href="/"
               className="flex items-center px-4 py-2 hover:bg-gray-700"
             >
               <Home size={24} />
@@ -39,7 +38,7 @@ const SideBar: React.FC<SidebarProps> = ({
           </li>
           <li className="mb-4">
             <a
-              href="#"
+              href="/questions"
               className="flex items-center px-4 py-2 hover:bg-gray-700"
             >
               <Book size={24} />
@@ -48,7 +47,7 @@ const SideBar: React.FC<SidebarProps> = ({
           </li>
           <li className="mb-4">
             <a
-              href="#"
+              href="/"
               className="flex items-center px-4 py-2 hover:bg-gray-700"
             >
               <History size={24} />

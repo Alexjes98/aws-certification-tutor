@@ -32,7 +32,6 @@ const Chat = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-gray-100">
       <div className="flex flex-col flex-grow">
         <header className="bg-white shadow-md p-4">
           <h1 className="text-2xl font-bold text-center">
@@ -75,7 +74,6 @@ const Chat = () => {
           </form>
         </div>
       </div>
-    </div>
   );
 };
 
