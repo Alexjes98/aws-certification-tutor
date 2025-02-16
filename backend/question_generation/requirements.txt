@@ -1,0 +1,6 @@
+pydantic
+langchain-aws
+langchain-core
+langchain
+retrying
+boto3
