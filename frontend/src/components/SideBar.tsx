@@ -1,5 +1,12 @@
 import type React from "react";
-import { ChevronLeft, ChevronRight, Home, Book, History } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Home,
+  Book,
+  History,
+  FileQuestion,
+} from "lucide-react";
 interface SidebarProps {
   isExpanded: boolean;
   toggleSidebar: () => void;
@@ -47,11 +54,11 @@ const SideBar: React.FC<SidebarProps> = ({
           </li>
           <li className="mb-4">
             <a
-              href="/"
+              href="/quizStart"
               className="flex items-center px-4 py-2 hover:bg-gray-700"
             >
-              <History size={24} />
-              {isExpanded && <span className="ml-4">Chat History</span>}
+              <FileQuestion size={24} />
+              {isExpanded && <span className="ml-4">Start Quiz</span>}
             </a>
           </li>
         </ul>

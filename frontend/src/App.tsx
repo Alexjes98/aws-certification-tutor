@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 import Chat from "./pages/Chat";
 import Questions from "./pages/Questions";
+import QuizStart from "./pages/QuizStart";
 
 import SideBar from "./components/SideBar";
 function App() {
@@ -26,6 +27,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Chat />} />
               <Route path="/questions" element={<Questions />} />
+              <Route path="/quizStart" element={<QuizStart />} />
             </Routes>
           </Router>
         </div>

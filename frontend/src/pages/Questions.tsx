@@ -19,7 +19,7 @@ interface Question {
 }
 
 const Questions = () => {
-  const data = [
+  const data: Question[] = [
     {
       questionId: "fhae23g1jj1kds1498fdjnvk342",
       topic: "IAM",
