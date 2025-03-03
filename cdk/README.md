@@ -15,11 +15,15 @@ The `cdk.json` file tells the CDK Toolkit how to execute your app.
 
 
 To deploy the resources run
-
+aws configure
+aws sts get-caller-identity (optional)
 aws configure sso
+aws sts get-caller-identity --profile (optional)
 
-export CDK_DEFAULT_ACCOUNT=your_account_id
-export CDK_DEFAULT_REGION=your_region
+export AWS_PROFILE=<ENV_PROFILE>
+export AWS_DEFAULT_REGION=<ENV_REGION>
+export CDK_DEFAULT_ACCOUNT=<ENV_ACCOUNT>
+export CDK_DEFAULT_REGION=<ENV_REGION>
 
 cdk bootstrap
 

@@ -56,8 +56,10 @@ export class BackendConstruct extends Construct {
     });
 
     // Create Docker Lambda function for PDF processing
-    this.pdfProcessorLambda = new lambda.DockerImageFunction(this, 'PdfProcessorFunction', {
-      code: lambda.DockerImageCode.fromImageAsset('../lambda/pdf_extraction'),
+    this.pdfProcessorLambda = new lambda.Function(this, 'PdfExtractionLambda', {
+      code: lambda.Code.fromAsset('../lambda/pdf_extraction'),
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'index.lambda_handler',
       timeout: Duration.seconds(300),
       memorySize: 512,
       environment: {
