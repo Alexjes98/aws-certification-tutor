@@ -20,9 +20,9 @@ export class CdkStack extends cdk.Stack {
       value: backend.sourceDocumentsBucket.bucketName,
     });
 
-    new CfnOutput(this, "QuestionsTable", {
-      value: backend.questionsTable.tableName,
-    });
+    // new CfnOutput(this, "QuestionsTable", {
+    //   value: backend.questionsTable.tableName,
+    // });
     
   }
 }

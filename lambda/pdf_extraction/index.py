@@ -41,17 +41,3 @@ def lambda_handler(event, context):
                 'text_content': text_content
             }
         }
-
-if __name__ == "__main__":
-    # Local testing
-    test_event = {
-        'messageBody': json.dumps({
-            'Records': [{
-                's3': {
-                    'bucket': {'name': 'test-bucket'},
-                    'object': {'key': 'test.pdf'}
-                }
-            }]
-        })
-    }
-    print(lambda_handler(test_event, None)) 

@@ -16,11 +16,11 @@ import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 
 export class BackendConstruct extends Construct {
   public readonly sourceDocumentsBucket: s3.Bucket;
-  public readonly questionsTable: dynamodb.Table;
-  public readonly pdfProcessingQueue: sqs.Queue;
+  // public readonly questionsTable: dynamodb.Table;
+  // public readonly pdfProcessingQueue: sqs.Queue;
   public readonly pdfProcessorLambda: lambda.DockerImageFunction;
-  public readonly pdfProcessingStateMachine: sfn.StateMachine;
-  public readonly sqsTriggerLambda: lambda.Function;
+  //public readonly pdfProcessingStateMachine: sfn.StateMachine;
+  //public readonly sqsTriggerLambda: lambda.Function;
 
   constructor(scope: Construct, id: string) {
     super(scope, id);
@@ -32,7 +32,7 @@ export class BackendConstruct extends Construct {
       autoDeleteObjects: true,
     });
 
-    this.questionsTable = new dynamodb.Table(this, "QuestionsTable", {
+    /*this.questionsTable = new dynamodb.Table(this, "QuestionsTable", {
       partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
       removalPolicy: RemovalPolicy.DESTROY,
     });
@@ -53,34 +53,34 @@ export class BackendConstruct extends Construct {
         queue: deadLetterQueue,
         maxReceiveCount: 3,
       },
-    });
+    });*/
 
     // Create Docker Lambda function for PDF processing
-    this.pdfProcessorLambda = new lambda.Function(this, 'PdfExtractionLambda', {
-      code: lambda.Code.fromAsset('../lambda/pdf_extraction'),
-      runtime: lambda.Runtime.PYTHON_3_12,
-      handler: 'index.lambda_handler',
-      timeout: Duration.seconds(300),
+    this.pdfProcessorLambda = new lambda.DockerImageFunction(this, 'PdfExtractionLambda', {
+      code: lambda.DockerImageCode.fromImageAsset('../lambda/pdf_extraction', {
+        cmd: ["index.lambda_handler"],
+        file: 'Dockerfile',
+      }),
+      architecture: lambda.Architecture.X86_64,
       memorySize: 512,
-      environment: {
-        QUESTIONS_TABLE: this.questionsTable.tableName,
-        SQS_QUEUE_URL: this.pdfProcessingQueue.queueUrl,
-      },
+      timeout: Duration.minutes(5)
     });
 
     // Grant permissions
     this.sourceDocumentsBucket.grantRead(this.pdfProcessorLambda);
-    this.questionsTable.grantWriteData(this.pdfProcessorLambda);
-    this.pdfProcessingQueue.grantConsumeMessages(this.pdfProcessorLambda);
+    // this.pdfProcessingQueue.grantConsumeMessages(this.pdfProcessorLambda);
 
     // Add SQS queue as destination for PDF uploads
+    /*
     this.sourceDocumentsBucket.addEventNotification(
       s3.EventType.OBJECT_CREATED,
       new s3n.SqsDestination(this.pdfProcessingQueue),
       { suffix: '.pdf' }
     );
+    */
 
     // Create Step Functions workflow
+    /*
     const pdfExtractionTask = new tasks.LambdaInvoke(this, 'PdfExtractionTask', {
       lambdaFunction: this.pdfProcessorLambda,
       resultPath: '$.extractionResult',
@@ -90,8 +90,10 @@ export class BackendConstruct extends Construct {
       definitionBody: sfn.DefinitionBody.fromChainable(pdfExtractionTask),
       timeout: Duration.minutes(30),
     });
+    */
 
     // Create Lambda function to trigger Step Functions from SQS
+    /*
     this.sqsTriggerLambda = new lambda.Function(this, 'SqsToStepFunctionsHandler', {
       runtime: lambda.Runtime.NODEJS_18_X,
       handler: 'index.handler',
@@ -127,5 +129,6 @@ export class BackendConstruct extends Construct {
 
     // Grant permissions for Lambda to start Step Functions execution
     this.pdfProcessingStateMachine.grantStartExecution(this.sqsTriggerLambda);
+    */
   }
 }
