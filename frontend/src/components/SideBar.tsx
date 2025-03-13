@@ -4,7 +4,7 @@ import {
   ChevronRight,
   Home,
   Book,
-  History,
+  File,
   FileQuestion,
 } from "lucide-react";
 interface SidebarProps {
@@ -59,6 +59,15 @@ const SideBar: React.FC<SidebarProps> = ({
             >
               <FileQuestion size={24} />
               {isExpanded && <span className="ml-4">Start Quiz</span>}
+            </a>
+          </li>
+          <li className="mb-4">
+            <a
+              href="/documents"
+              className="flex items-center px-4 py-2 hover:bg-gray-700"
+            >
+              <File size={24} />
+              {isExpanded && <span className="ml-4">Documents</span>}
             </a>
           </li>
         </ul>
