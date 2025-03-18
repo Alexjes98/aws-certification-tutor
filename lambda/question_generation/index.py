@@ -1,8 +1,6 @@
 import os
-import json
 import boto3
 import pydantic
-import re
 from pydantic import Field
 from pydantic import BaseModel
 from retrying import retry
@@ -11,6 +9,11 @@ from langchain_aws import ChatBedrock
 
 from botocore.config import Config
 from botocore.exceptions import ClientError
+from langchain_core.prompts.chat import ChatPromptTemplate, HumanMessagePromptTemplate, SystemMessagePromptTemplate
+
+BEDROCK_REGION = os.environ.get("BEDROCK_REGION")
+BEDROCK_MODEL_ID = "amazon.nova-lite-v1:0" #os.environ.get("BEDROCK_MODEL_ID")
+QUALITY_THRESHOLD = float(os.environ.get("QUALITY_THRESHOLD", "0.7"))
 
 class BedrockRetryableError(Exception):
     """Class to identify a Bedrock throttling error"""
@@ -19,78 +22,61 @@ class BedrockRetryableError(Exception):
         super().__init__(self)
 
         self.message = msg
-        
 class Question(BaseModel):
     """Details about the question extracted from the text"""
-    topic: str = Field(description="The topic of the question")
-    subtopic: str = Field(description="The subtopic of the question")
-    questionText: str = Field(description="The actual question text")
+    questionText: str = Field(description="The actual question text", alias="question_text")
     options: list = Field(description="Array of answer options")
-    correctOptions: list = Field(description="Array of optionIds that are correct")
-    difficulty: int = Field(description="Difficulty level of the question")
-    tags: list = Field(description="Array of tags for the question")
+    correctOptions: list = Field(
+        description="Array of optionIds that are correct", alias="correct_options")
+    tags: list = Field(
+        description="Array of tags of question topics", default=[])
+    quality_score: float = Field(
+        description="A score from 0-1 indicating the quality of the question", default=0.0)
 
-CLAUDE_INFORMATION_EXTRACTION_SYSTEM_PROMPT_EN = """You are an advanced information extraction system. Your job is to extract key information from the text presented to you and put it in JSON format. The information you generate will be consumed by other systems which is why its highly importat that you place the information in a JSON object. You work with sensitive, very important information which is why you are extremely cautious when extracting the information reasoning thoroughly about the extracted information.
+    class Config:
+        populate_by_name = True
+        allow_population_by_field_name = True
 
-You always behave in a professional, reliable, and confident manner.
+QUESTION_GENERATION_PROMPT = """You are an advanced question generation system specialized in creating AWS certification questions.
+Your job is to generate high-quality multiple-choice questions based on the text provided.
 
-For this task you are the follow this rules:
+GUIDELINES:
+- Create questions that test understanding of AWS concepts, services, and best practices
+- Focus on practical knowledge that would be tested in AWS certification exams
+- Generate clear, unambiguous questions with 4-5 answer options
+- Ensure at least one option is correct (sometimes multiple may be correct)
+- Avoid questions about documentation specifics, code examples, or irrelevant details
+- If the text doesn't contain sufficient AWS-related information, return an empty question
 
-- NEVER ignore any of this rules otherwise the user will be very upset
-- Before you start extracting the information you will first think about the information you have available and the information you need to extract and place your reasoning in <thinking>
-- Before you start extracting the information you will first determine how confident you are that you can extract the requested information with a number between 0 and 100. Place this number in the field <confidence_level>.
-- NEVER extract information from which you are not confident, as a minimum you need 70 points of confidence to extract the requested information
-- Place your conclusion in <conclusion> about whether you can or cannot extract the requested information
-- It is okay if you cannot extract the requested information, the information is very sensitive and you only extract information of which you are confident
-- ALWAYS extract the information in a JSON object, otherwise your work has no purpose
-- Place the information you extract in <extracted_information>
-- Do not fill all the values, only extract the values from which you are completely confident
-- When you are not confident about a value leave the field empty
-- If you cannot extract the requested information, generate a JSON object with empty values
+OUTPUT FORMAT:
+Generate a structured question with the following fields:
+- questionText: The actual question being asked
+- options: Array of possible answers (4-5 options)
+- correctOptions: Array of indices of correct answers (0-based)
+- tags: Array of tags of question topics
+- quality_score: Your assessment (0.0-1.0) of how well the question tests AWS certification knowledge
 
-Your confident level is calculated according to the following criteria:
-
-- confidence_level<0 if the requested information is not contained in the original text
-- 20<confidence_level<60 if part of the requested information is contained in the original text
-- 60<confidence_level<90 if the requested information can be inferred from information in the original text
-- 90<confidence_level if all the requested information is contained in the original text
-
-Your answer must always contain the following elements:
-
-- <thinking>: Your reasoning about the information you have available and the information you need to extract
-- <confidence_level>: The confidence level you have in extracting the requested information
-- <conclusion>: Your conclusion about whether you can or cannot extract the requested information
-- <extracted_information>: The information you extract in a JSON object
-
-This is the JSON schema you must follow to extract the information:
+IMPORTANT: Your response must be a valid JSON object matching the schema provided. Do not include any explanations or text outside of the JSON structure.
+This is the JSON schema you must follow:
 
 <json_schema>
 {json_schema}
 </json_schema>
 """
 
-class InformationExtraction(BaseModel):
-    """Details about the information extraction task the LLM performed"""
-    thinking: str = Field(description="The reasoning of the LLM about the information to extract and the presented text")
-    confidence_level: int = Field(0, description="The level of confidence the LLM shows about extracting the requested information")
-    conclusion: bool = Field(False, description="Whether the LLM considers the requested information can be extracted from the presented text")
-    extracted_information: str = Field(description="The information extracted by the LLM")
+INFORMATION_EXTRACTION_USER_PROMPT_EN = """
+Extract the information from the following text:
 
-BEDROCK_REGION = os.environ.get("BEDROCK_REGION")
-SOURCE_DOCUMENTS_BUCKET = os.environ.get("SOURCE_DOCUMENTS_BUCKET")
-QUESTIONS_TABLE = os.environ.get("QUESTIONS_TABLE")
-BEDROCK_MODEL_ID = os.environ.get("BEDROCK_MODEL_ID")
+<text>
+{text}
+</text>
+"""
 
-INFORMATION_EXTRACTION_MODEL_PARAMETERS = {
+QUESTION_GENERATION_MODEL_PARAMETERS = {
     "max_tokens": 1500,
-    "temperature": 0.1,
-    "top_k": 20,
-}
-
-FORMAT_RESPONSES_CLAUDE_PARAMETERS = {
-    "max_tokens": 1500,
-    "temperature": 0,
-    "top_k": 20,
+    "temperature": 0.2,  # Slightly higher temperature for more creative questions
+    "top_k": 250,
+    "top_p": 0.9,
 }
 
 bedrock_runtime = boto3.client(
@@ -99,54 +85,81 @@ bedrock_runtime = boto3.client(
     config=Config(retries={'max_attempts': 20})
 )
 
-table = boto3.resource("dynamodb").Table(QUESTIONS_TABLE)
-
 @retry(wait_exponential_multiplier=10000, wait_exponential_max=60000, stop_max_attempt_number=10,
        retry_on_exception=lambda ex: isinstance(ex, BedrockRetryableError))
-def text_information_extraction(text: str) -> BaseModel:
+def generate_question(text: str) -> Question:
+    """
+    Generate a question from the provided text using Bedrock LLM
+
+    @param text: The text to generate a question from
+    @return: A Question object
+    @raise: BedrockRetryableError if the Bedrock API returns a throttling error
+    @raise: Exception if an error occurs during the question generation process
+    """
 
     bedrock_llm = ChatBedrock(
         model_id=BEDROCK_MODEL_ID,
-        model_kwargs=INFORMATION_EXTRACTION_MODEL_PARAMETERS,
+        model_kwargs=QUESTION_GENERATION_MODEL_PARAMETERS,
         client=bedrock_runtime,
     )
-    
-    claude_information_extraction_prompt_template = CLAUDE_INFORMATION_EXTRACTION_SYSTEM_PROMPT_EN
 
+    # Create a proper chat prompt template combining both prompts
+    prompt = ChatPromptTemplate.from_messages([
+        SystemMessagePromptTemplate.from_template(QUESTION_GENERATION_PROMPT),
+        HumanMessagePromptTemplate.from_template(
+            INFORMATION_EXTRACTION_USER_PROMPT_EN)
+    ])
+
+    # Use structured output directly
     structured_llm = bedrock_llm.with_structured_output(Question)
 
-    structured_chain = claude_information_extraction_prompt_template | structured_llm
+    # Create the chain with the combined prompt
+    structured_chain = prompt | structured_llm
 
     # Retry mechanism to workaround Bedrock Throttling
     try:
-        print(f"Extracting information")
-        information_extraction_obj = structured_chain.invoke({
+        print(f"Generating question from text")
+        raw_output = structured_chain.invoke({
             "json_schema": Question.model_json_schema(),
             "text": text
         })
+        print(f"Raw LLM output: {raw_output}")
+        question = raw_output
+        print(f"Generated question: {question}")
+        return question
     except ClientError as exc:
-        if exc.response['Error']['Code'] == 'ThrottlingException':
-            print("Bedrock throttling. To try again")
-            raise BedrockRetryableError(str(exc))
-        elif exc.response['Error']['Code'] == 'ModelTimeoutException':
-            print("Bedrock ModelTimeoutException. To try again")
+        if exc.response['Error']['Code'] in ['ThrottlingException', 'ModelTimeoutException']:
+            print(f"Bedrock {exc.response['Error']['Code']}. Retrying...")
             raise BedrockRetryableError(str(exc))
         else:
             raise
-    except bedrock_runtime.exceptions.ThrottlingException as throttlingExc:
-        print("Bedrock ThrottlingException. To try again")
-        raise BedrockRetryableError(str(throttlingExc))
-    except bedrock_runtime.exceptions.ModelTimeoutException as timeoutExc:
-        print("Bedrock ModelTimeoutException. To try again")
-        raise BedrockRetryableError(str(timeoutExc))
+    except (bedrock_runtime.exceptions.ThrottlingException,
+            bedrock_runtime.exceptions.ModelTimeoutException) as e:
+        print(f"Bedrock exception: {type(e).__name__}. Retrying...")
+        raise BedrockRetryableError(str(e))
     except Exception as e:
-
         template = "An exception of type {0} occurred. Arguments:\n{1!r}"
         message = template.format(type(e).__name__, e.args)
         print(message)
         raise
 
-    return information_extraction_obj
+
+def is_valid_question(question: Question) -> bool:
+    """Validate if the generated question meets quality criteria"""
+    # Check if question has sufficient quality score
+    if question.quality_score < QUALITY_THRESHOLD:
+        return False
+
+    # Check if question has valid content
+    if not question.questionText or not question.options or not question.correctOptions:
+        return False
+
+    # Check if correctOptions references valid options
+    if any(idx >= len(question.options) for idx in question.correctOptions):
+        return False
+
+    return True
+
 
 def lambda_handler(event, context):
     """
@@ -155,35 +168,39 @@ def lambda_handler(event, context):
     @param context:
     @return:
     """
-    
-    print("Received event: ", event)
-    
-    doc_text = event["text"]
-    chunk_index = event["chunk_index"]
-    
-    extracted_information = {}
-    
-    try:
-        # Invoke the model to extract the information
-        print(f"Extracting information")
-        question = text_information_extraction(doc_text)
-        print(f"Extracted question: {question}")
-        
 
+    page_text = event["page_text"]
+    page_index = event["page_index"]
+
+    try:
+        # Generate question from the text
+        question = generate_question(page_text)
+        print(f"Generated question: {question}")
+
+        # Validate the question
+        question_valid = is_valid_question(question)
+
+        return {
+            "statusCode": 200,
+            "body": {
+                "question": question.model_dump() if question_valid else None,
+                "is_valid": question_valid,
+                "page_index": page_index
+            }
+        }
     except pydantic.ValidationError as e:
         print(f"Pydantic Validation error: {e}")
-    except Exception as e:
-        template = "An exception of type {0} occurred. Arguments:\n{1!r}"
-        message = template.format(type(e).__name__, e.args)
-        print(message)
-        raise
-
-    print(f"Extracted information: {extracted_information}")
-
-    return {
-        "statusCode": 200,
-        "body": {
-            "extracted_information": extracted_information,
-            "chunk_index": chunk_index
+        return {
+            "statusCode": 400,
+            "body": {
+                "error": str(e)
+            }
         }
-    }
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return {
+            "statusCode": 500,
+            "body": {
+                "error": str(e)
+            }
+        }

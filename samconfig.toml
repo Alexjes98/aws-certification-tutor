@@ -1,0 +1,5 @@
+version = 0.1
+[default]
+[default.local_invoke]
+parameter_overrides = "BedrockRegion=${BEDROCK_REGION} BedrockModelId=${BEDROCK_MODEL_ID} QualityThreshold=${QUALITY_THRESHOLD}"
+env_vars = "env.json" 

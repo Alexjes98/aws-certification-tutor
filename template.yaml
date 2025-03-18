@@ -1,0 +1,45 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: AWS Certification Tutor Question Generation Lambda
+
+Parameters:
+  BedrockRegion:
+    Type: String
+    Default: us-east-1
+    Description: AWS Region for Bedrock API
+  BedrockModelId:
+    Type: String
+    Default: us.deepseek.r1-v1:0
+    Description: Bedrock Model ID to use
+  QualityThreshold:
+    Type: Number
+    Default: 0.7
+    Description: Quality threshold for generated questions
+
+Resources:
+  QuestionGenerationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/question_generation/
+      Handler: index.lambda_handler
+      Runtime: python3.10
+      Timeout: 300
+      MemorySize: 512
+      Environment:
+        Variables:
+          BEDROCK_REGION: !Ref BedrockRegion
+          BEDROCK_MODEL_ID: !Ref BedrockModelId
+          QUALITY_THRESHOLD: !Ref QualityThreshold
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: '*'
+
+Outputs:
+  QuestionGenerationFunction:
+    Description: Question Generation Lambda Function ARN
+    Value: !GetAtt QuestionGenerationFunction.Arn 
