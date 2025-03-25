@@ -125,7 +125,6 @@ def generate_question(text: str) -> Question:
         })
         print(f"Raw LLM output: {raw_output}")
         question = raw_output
-        print(f"Generated question: {question}")
         return question
     except ClientError as exc:
         if exc.response['Error']['Code'] in ['ThrottlingException', 'ModelTimeoutException']:
@@ -168,6 +167,8 @@ def lambda_handler(event, context):
     @param context:
     @return:
     """
+    
+    print(f"Received event: {event}")
 
     page_text = event["page_text"]
     page_index = event["page_index"]
