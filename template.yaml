@@ -38,6 +38,24 @@ Resources:
               Action:
                 - bedrock:InvokeModel
               Resource: '*'
+  QuestionStoringFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/question_storing/
+      Handler: index.lambda_handler
+      Runtime: python3.10
+      Timeout: 300
+      MemorySize: 512
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref QuestionsTable
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+              Resource: '*'
 
 Outputs:
   QuestionGenerationFunction:

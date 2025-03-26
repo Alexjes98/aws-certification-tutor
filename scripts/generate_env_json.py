@@ -8,10 +8,16 @@ load_dotenv()
 
 # Create env.json structure for SAM
 env_vars = {
+    "DocumentProcessingFunction": {
+        "S3_BUCKET": os.getenv("S3_BUCKET")
+    },
     "QuestionGenerationFunction": {
         "BEDROCK_REGION": os.getenv("BEDROCK_REGION"),
         "BEDROCK_MODEL_ID": os.getenv("BEDROCK_MODEL_ID"),
         "QUALITY_THRESHOLD": os.getenv("QUALITY_THRESHOLD")
+    },
+    "QuestionStoringFunction": {
+        "DYNAMODB_TABLE": os.getenv("DYNAMODB_TABLE")
     }
 }
 

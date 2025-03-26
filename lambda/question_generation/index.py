@@ -24,12 +24,17 @@ class BedrockRetryableError(Exception):
         self.message = msg
 class Question(BaseModel):
     """Details about the question extracted from the text"""
+    topic: str = Field(description="The topic of the question", default="")
     questionText: str = Field(description="The actual question text", alias="question_text")
     options: list = Field(description="Array of answer options")
     correctOptions: list = Field(
         description="Array of optionIds that are correct", alias="correct_options")
+    optionsExplanation: list = Field(
+        description="Array of explanations for why the answer options are correct or incorrect", alias="options_explanation")
     tags: list = Field(
         description="Array of tags of question topics", default=[])
+    difficulty: int = Field(
+        description="The difficulty level of the question", default=0)
     quality_score: float = Field(
         description="A score from 0-1 indicating the quality of the question", default=0.0)
 
@@ -53,7 +58,9 @@ Generate a structured question with the following fields:
 - questionText: The actual question being asked
 - options: Array of possible answers (4-5 options)
 - correctOptions: Array of indices of correct answers (0-based)
-- tags: Array of tags of question topics
+- optionsExplanation: Array of explanations for why the answer options are correct or incorrect
+- tags: Array of tags of question topics (grouped by AWS service category)
+- difficulty: The difficulty level of the question (1-5) rating based on if the question corresponds to the level of difficulty of an AWS certification exam (Fundational, Associate, Professional, Specialty)
 - quality_score: Your assessment (0.0-1.0) of how well the question tests AWS certification knowledge
 
 IMPORTANT: Your response must be a valid JSON object matching the schema provided. Do not include any explanations or text outside of the JSON structure.

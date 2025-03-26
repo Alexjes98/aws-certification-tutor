@@ -1,0 +1,25 @@
+{
+    "statusCode": 200,
+    "body": {
+      "question": {
+        "questionText": "What is AWS Lambda?",
+        "options": [
+          "A service for running code without provisioning or managing servers",
+          "A database service for storing large amounts of data",
+          "A service for managing virtual machines",
+          "A service for creating and managing containers",
+          "A service for running batch processing jobs"
+        ],
+        "correctOptions": [
+          0
+        ],
+        "tags": [
+          "AWS Lambda",
+          "Serverless Computing"
+        ],
+        "quality_score": 0.9
+      },
+      "is_valid": true,
+      "page_index": 0
+    }
+  }
