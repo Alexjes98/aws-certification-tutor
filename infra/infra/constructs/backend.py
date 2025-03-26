@@ -38,9 +38,8 @@ class BackendConstruct(Construct):
             memory_size=512,
             timeout=Duration.minutes(5),
         )
-        
-        #"An error occurred (AccessDeniedException) when calling the Converse operation: User: arn:aws:sts::231149472867:assumed-role/CertificationTutorStack-BackendQuestionGenerationLa-NYPJhwvg1LaA/CertificationTutorStack-BackendQuestionGenerationL-M8KCFiXwE7f8 is not authorized to perform: bedrock:InvokeModel on resource: arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-lite-v1:0 because no identity-based policy allows the bedrock:InvokeModel action"
-        #TODO: Add bedrock policy to lambda to allow access to bedrock
+
+        self.sourceDocumentsBucket.grant_read(self.documentProcessingLambda)
 
         # Create question generation lambda
         self.questionGenerationLambda = DockerImageFunction(
@@ -57,3 +56,11 @@ class BackendConstruct(Construct):
                 "BEDROCK_MODEL_ID": os.environ.get("BEDROCK_MODEL_ID"),
             }
         )
+
+        # Add Bedrock policy to question generation lambda
+        bedrock_policy = iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["bedrock:InvokeModel"],
+            resources=["*"]
+        )
+        self.questionGenerationLambda.add_to_role_policy(bedrock_policy)
