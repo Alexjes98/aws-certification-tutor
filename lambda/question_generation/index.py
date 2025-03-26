@@ -12,7 +12,7 @@ from botocore.exceptions import ClientError
 from langchain_core.prompts.chat import ChatPromptTemplate, HumanMessagePromptTemplate, SystemMessagePromptTemplate
 
 BEDROCK_REGION = os.environ.get("BEDROCK_REGION")
-BEDROCK_MODEL_ID = "amazon.nova-lite-v1:0" #os.environ.get("BEDROCK_MODEL_ID")
+BEDROCK_MODEL_ID = os.environ.get("BEDROCK_MODEL_ID")
 QUALITY_THRESHOLD = float(os.environ.get("QUALITY_THRESHOLD", "0.7"))
 
 class BedrockRetryableError(Exception):
