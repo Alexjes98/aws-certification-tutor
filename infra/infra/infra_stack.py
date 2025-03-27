@@ -34,6 +34,18 @@ class InfraStack(Stack):
             description="Name of the question generation Lambda function"
         )
 
+        CfnOutput(
+            self, "QuestionStoringLambdaFunctionName",
+            value=backend.questionStoringLambda.function_name,
+            description="Name of the question storing Lambda function"
+        )
+
+        CfnOutput(
+            self, "QuestionsTableName",
+            value=backend.questionsTable.table_name,
+            description="Name of the questions table"
+        )
+
         # The code that defines your stack goes here
 
         # example resource

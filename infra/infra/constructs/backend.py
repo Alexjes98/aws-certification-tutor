@@ -9,13 +9,15 @@ from aws_cdk import (
     aws_lambda as lambda_,
     aws_iam as iam,
 )
-from aws_cdk.aws_lambda import DockerImageFunction, DockerImageCode
+from aws_cdk.aws_lambda import DockerImageFunction, DockerImageCode, Function
 
 
 class BackendConstruct(Construct):
     sourceDocumentsBucket: s3.Bucket
     documentProcessingLambda: DockerImageFunction
     questionGenerationLambda: DockerImageFunction
+    questionStoringLambda: Function
+    questionsTable: dynamodb.Table
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -26,6 +28,12 @@ class BackendConstruct(Construct):
             encryption=s3.BucketEncryption.S3_MANAGED,
             removal_policy=RemovalPolicy.DESTROY,
             auto_delete_objects=True,
+        )
+        
+        self.questionsTable = dynamodb.Table(
+            self, "QuestionsTable",
+            partition_key=dynamodb.Attribute(name="question_id", type=dynamodb.AttributeType.STRING),
+            removal_policy=RemovalPolicy.DESTROY,
         )
 
         # Create document processing lambda
@@ -64,3 +72,16 @@ class BackendConstruct(Construct):
             resources=["*"]
         )
         self.questionGenerationLambda.add_to_role_policy(bedrock_policy)
+        
+        # Create question storing lambda
+        self.questionStoringLambda = Function(
+            self, "QuestionStoringLambda",
+            code=lambda_.Code.from_asset(".././lambda/question_storing"),
+            handler="index.lambda_handler",
+            runtime=lambda_.Runtime.PYTHON_3_10,
+            environment={
+                "QUESTIONS_TABLE_NAME": self.questionsTable.table_name
+            }
+        )
+
+        self.questionsTable.grant_read_write_data(self.questionStoringLambda)

@@ -3,6 +3,10 @@ import boto3
 import uuid
 from datetime import datetime, UTC
 
+import os
+
+QUESTIONS_TABLE_NAME = os.environ.get("QUESTIONS_TABLE_NAME")
+
 def lambda_handler(event, context):
     """
     This lambda function stores the question in the DynamoDB table.
@@ -13,7 +17,7 @@ def lambda_handler(event, context):
     try:
         # Initialize DynamoDB client
         dynamodb = boto3.resource('dynamodb')
-        table = dynamodb.Table('questionsTable')
+        table = dynamodb.Table(QUESTIONS_TABLE_NAME)
         
         # Get the question object from the event
         question_data = event.get('question')
