@@ -15,9 +15,14 @@ function App() {
     setIsSidebarExpanded(!isSidebarExpanded);
   };
 
+  const handleChatHistory = (message: string) => {
+    setChatHistory([...chatHistory, message]);
+  };
+
   return (
     <>
       <div className="flex row">
+        <button onClick={() => handleChatHistory("Hello")}>Click me</button>
         <div className="flex h-screen w-screen bg-gray-100 overflow-auto">
           <SideBar
             isExpanded={isSidebarExpanded}

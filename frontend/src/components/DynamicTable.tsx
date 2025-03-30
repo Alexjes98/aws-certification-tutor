@@ -157,6 +157,7 @@ export const ExampleUsage: React.FC = () => {
       header: "Name",
       searchable: true,
       interaction: (value, rowData) => {
+        console.log(value)
         window.open(rowData.website, "_blank")
       },
       render: (value) => <span className="font-medium">{value}</span>,

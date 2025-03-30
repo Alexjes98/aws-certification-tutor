@@ -1,36 +1,16 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import DynamicTable, { ColumnConfig } from "../components/DynamicTable";
 import { Trash2, Upload, RefreshCcw } from "lucide-react";
 
-import { S3Service } from "../api/s3_service";
-
-interface Document {
-  id: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export default function Documents() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [documents, setDocuments] = useState<Document[]>([]);
-
-  const documentsService = new S3Service("us-east-1", "your-bucket-name", {
-    accessKeyId: "your-access-key-id",
-    secretAccessKey: "your-secret-access-key",
-    sessionToken: "your-session-token",
-  });
 
   useEffect(() => {
-    const fetchDocuments = async () => {
-      const documents = await documentsService.listObjects();
-      console.log(documents);
-      
-    };
+    const fetchDocuments = async () => {};
     fetchDocuments();
   }, []);
-  
+
   const columns: ColumnConfig[] = [
     {
       key: "documentId",
@@ -90,13 +70,17 @@ export default function Documents() {
             <button className="bg-blue-500 text-white px-4 py-2 rounded-md">
               <RefreshCcw size={24} />
             </button>
-          <button className="bg-blue-500 text-white px-4 py-2 rounded-md">
+            <button className="bg-blue-500 text-white px-4 py-2 rounded-md">
               <Upload size={24} />
             </button>
           </div>
         </div>
         <div className="flex-grow p-4">
-          <DynamicTable data={documents} columns={columns} externalSearchTerm={searchTerm} />
+          <DynamicTable
+            data={[]}
+            columns={columns}
+            externalSearchTerm={searchTerm}
+          />
         </div>
       </div>
     </div>
