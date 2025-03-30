@@ -1,11 +1,19 @@
 #!/bin/bash
 
+# Exit immediately if a command exits with a non-zero status
+set -e
+
 # Workaround script for AWS Need to perform AWS calls for account XXX, but no credentials have been configured
 # Need to pass in AWS_PROFILE and AWS_REGION as arguments
 # Need to run aws configure and load variables from ~/.aws/credentials
 
 # Get the directory where the script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# Build the frontend
+echo "building frontend..."
+cd "$SCRIPT_DIR/../frontend"
+npm run build
+
 # Move to the infra directory (one level up from scripts)
 cd "$SCRIPT_DIR/../infra"
 

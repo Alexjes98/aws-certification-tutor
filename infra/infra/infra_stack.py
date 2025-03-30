@@ -6,6 +6,8 @@ from aws_cdk import (
 )
 from constructs import Construct
 from .constructs.backend import BackendConstruct
+from .constructs.frontend import FrontendConstruct
+
 
 class InfraStack(Stack):
 
@@ -15,7 +17,16 @@ class InfraStack(Stack):
         # Create the backend construct
         backend = BackendConstruct(self, "Backend")
 
-        # Add outputs
+        # Create the frontend construct
+        frontend = FrontendConstruct(
+            self, "Frontend", api_gateway_rest_api=backend.api_gateway_rest_api,
+            source_documents_bucket=backend.sourceDocumentsBucket,
+            questions_table=backend.questionsTable,
+            user_pool=backend.user_pool,
+            user_pool_client=backend.user_pool_client
+        )
+
+        # Backend outputs
         CfnOutput(
             self, "SourceDocumentsBucketName",
             value=backend.sourceDocumentsBucket.bucket_name,
@@ -46,10 +57,46 @@ class InfraStack(Stack):
             description="Name of the questions table"
         )
 
-        # The code that defines your stack goes here
+        # Frontend outputs
+        CfnOutput(
+            self, "ApiGatewayUrl",
+            value=backend.api_gateway_rest_api.url,
+            description="URL of the API Gateway"
+        )
 
-        # example resource
-        # queue = sqs.Queue(
-        #     self, "InfraQueue",
-        #     visibility_timeout=Duration.seconds(300),
-        # )
+        CfnOutput(
+            self, "DocumentCrudLambdaFunctionName",
+            value=backend.documentCrudLambda.function_name,
+            description="Name of the document CRUD Lambda function"
+        )
+
+        CfnOutput(
+            self, "QuestionsCrudLambdaFunctionName",
+            value=backend.questionsCrudLambda.function_name,
+            description="Name of the questions CRUD Lambda function"
+        )
+
+        CfnOutput(
+            self, "FrontendBucketName",
+            value=frontend.frontendBucket.bucket_name,
+            description="Name of the frontend bucket"
+        )
+
+        CfnOutput(
+            self, "FrontendDistributionDomainName",
+            value=frontend.frontendDistribution.domain_name,
+            description="Domain name of the frontend distribution"
+        )
+
+        CfnOutput(
+            self, "FrontendDistributionId",
+            value=frontend.frontendDistribution.distribution_id,
+            description="ID of the frontend distribution"
+        )
+
+        CfnOutput(
+            self, "IdentityPoolId",
+            value=frontend.identity_pool.ref,
+            description="ID of the Cognito Identity Pool"
+        )
+
