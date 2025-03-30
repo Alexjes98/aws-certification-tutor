@@ -1,23 +1,24 @@
-import type React from "react"
-import { useState, useCallback, useMemo } from "react"
+import type React from "react";
+import { useState, useCallback, useMemo } from "react";
 
 export interface TableData {
-  [key: string]: any
+  [key: string]: any;
 }
 
 export interface ColumnConfig {
-  key: string
-  header: string
-  searchable?: boolean
-  render?: (value: any, rowData: TableData) => React.ReactNode
-  interaction?: (value: any, rowData: TableData) => void
+  key: string;
+  header: string;
+  searchable?: boolean;
+  render?: (value: any, rowData: any) => React.ReactNode;
+  interaction?: (value: any, rowData: any) => void;
 }
 
 interface DynamicTableProps {
-  data: TableData[]
-  columns: ColumnConfig[]
-  className?: string
-  externalSearchTerm?: string
+  data: TableData[];
+  columns: ColumnConfig[];
+  className?: string;
+  externalSearchTerm?: string;
+  isLoading?: boolean;
 }
 
 const DynamicTable: React.FC<DynamicTableProps> = ({
@@ -25,43 +26,52 @@ const DynamicTable: React.FC<DynamicTableProps> = ({
   columns,
   className = "",
   externalSearchTerm,
+  isLoading = false,
 }) => {
-  const [internalSearchTerm, setInternalSearchTerm] = useState("")
-  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set())
+  const [internalSearchTerm, setInternalSearchTerm] = useState("");
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
 
-  const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm
+  const searchTerm =
+    externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
 
-  const handleInternalSearch = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    setInternalSearchTerm(event.target.value)
-  }, [])
+  const handleInternalSearch = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      setInternalSearchTerm(event.target.value);
+    },
+    []
+  );
 
   const filteredData = useMemo(() => {
     return data.filter((row) =>
       columns.some(
-        (column) => column.searchable && String(row[column.key]).toLowerCase().includes(searchTerm.toLowerCase()),
-      ),
-    )
-  }, [data, columns, searchTerm])
+        (column) =>
+          column.searchable &&
+          String(row[column.key])
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase())
+      )
+    );
+  }, [data, columns, searchTerm]);
 
   const toggleRowSelection = useCallback((index: number) => {
     setSelectedRows((prev) => {
-      const newSet = new Set(prev)
+      const newSet = new Set(prev);
       if (newSet.has(index)) {
-        newSet.delete(index)
+        newSet.delete(index);
       } else {
-        newSet.add(index)
+        newSet.add(index);
       }
-      return newSet
-    })
-  }, [])
+      return newSet;
+    });
+  }, []);
 
   const toggleAllRows = useCallback(() => {
     if (selectedRows.size === filteredData.length) {
-      setSelectedRows(new Set())
+      setSelectedRows(new Set());
     } else {
-      setSelectedRows(new Set(filteredData.map((_, index) => index)))
+      setSelectedRows(new Set(filteredData.map((_, index) => index)));
     }
-  }, [filteredData, selectedRows])
+  }, [filteredData, selectedRows]);
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -72,6 +82,7 @@ const DynamicTable: React.FC<DynamicTableProps> = ({
           value={internalSearchTerm}
           onChange={handleInternalSearch}
           className="w-full p-2 border border-gray-300 rounded"
+          disabled={isLoading}
         />
       )}
       <div className="overflow-x-auto">
@@ -81,9 +92,13 @@ const DynamicTable: React.FC<DynamicTableProps> = ({
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 <input
                   type="checkbox"
-                  checked={selectedRows.size === filteredData.length && filteredData.length > 0}
+                  checked={
+                    selectedRows.size === filteredData.length &&
+                    filteredData.length > 0
+                  }
                   onChange={toggleAllRows}
                   className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  disabled={isLoading}
                 />
               </th>
               {columns.map((column) => (
@@ -98,34 +113,67 @@ const DynamicTable: React.FC<DynamicTableProps> = ({
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {filteredData.map((row, rowIndex) => (
-              <tr key={rowIndex} className={rowIndex % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <input
-                    type="checkbox"
-                    checked={selectedRows.has(rowIndex)}
-                    onChange={() => toggleRowSelection(rowIndex)}
-                    className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  />
+            {isLoading ? (
+              <tr>
+                <td
+                  colSpan={columns.length + 1}
+                  className="px-6 py-4 text-center"
+                >
+                  <div className="flex justify-center items-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                  </div>
                 </td>
-                {columns.map((column) => (
-                  <td key={column.key} className="px-6 py-4 whitespace-nowrap">
-                    {column.interaction ? (
-                      <span
-                        onClick={() => column.interaction!(row[column.key], row)}
-                        className="cursor-pointer text-blue-600 hover:text-blue-800 hover:underline"
-                      >
-                        {column.render ? column.render(row[column.key], row) : row[column.key]}
-                      </span>
-                    ) : column.render ? (
-                      column.render(row[column.key], row)
-                    ) : (
-                      row[column.key]
-                    )}
-                  </td>
-                ))}
               </tr>
-            ))}
+            ) : filteredData.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={columns.length + 1}
+                  className="px-6 py-4 text-center text-gray-500"
+                >
+                  No data found
+                </td>
+              </tr>
+            ) : (
+              filteredData.map((row, rowIndex) => (
+                <tr
+                  key={rowIndex}
+                  className={rowIndex % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                >
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={selectedRows.has(rowIndex)}
+                      onChange={() => toggleRowSelection(rowIndex)}
+                      className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                      disabled={isLoading}
+                    />
+                  </td>
+                  {columns.map((column) => (
+                    <td
+                      key={column.key}
+                      className="px-6 py-4 whitespace-nowrap"
+                    >
+                      {column.interaction ? (
+                        <span
+                          onClick={() =>
+                            column.interaction!(row[column.key], row)
+                          }
+                          className="cursor-pointer text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          {column.render
+                            ? column.render(row[column.key], row)
+                            : row[column.key]}
+                        </span>
+                      ) : column.render ? (
+                        column.render(row[column.key], row)
+                      ) : (
+                        row[column.key]
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -133,22 +181,52 @@ const DynamicTable: React.FC<DynamicTableProps> = ({
         Selected {selectedRows.size} of {filteredData.length} rows
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default DynamicTable
+export default DynamicTable;
 
 // Example usage of the DynamicTable component with external search
 export const ExampleUsage: React.FC = () => {
-  const [externalSearchTerm, setExternalSearchTerm] = useState("")
+  const [externalSearchTerm, setExternalSearchTerm] = useState("");
 
   const sampleData = [
-    { id: 1, name: "John Doe", age: 30, role: "Developer", website: "https://johndoe.com" },
-    { id: 2, name: "Jane Smith", age: 28, role: "Designer", website: "https://janesmith.com" },
-    { id: 3, name: "Bob Johnson", age: 35, role: "Manager", website: "https://bobjohnson.com" },
-    { id: 4, name: "Alice Brown", age: 32, role: "Developer", website: "https://alicebrown.com" },
-    { id: 5, name: "Charlie Davis", age: 40, role: "Designer", website: "https://charliedavis.com" },
-  ]
+    {
+      id: 1,
+      name: "John Doe",
+      age: 30,
+      role: "Developer",
+      website: "https://johndoe.com",
+    },
+    {
+      id: 2,
+      name: "Jane Smith",
+      age: 28,
+      role: "Designer",
+      website: "https://janesmith.com",
+    },
+    {
+      id: 3,
+      name: "Bob Johnson",
+      age: 35,
+      role: "Manager",
+      website: "https://bobjohnson.com",
+    },
+    {
+      id: 4,
+      name: "Alice Brown",
+      age: 32,
+      role: "Developer",
+      website: "https://alicebrown.com",
+    },
+    {
+      id: 5,
+      name: "Charlie Davis",
+      age: 40,
+      role: "Designer",
+      website: "https://charliedavis.com",
+    },
+  ];
 
   const columns: ColumnConfig[] = [
     { key: "id", header: "ID", searchable: true },
@@ -157,8 +235,8 @@ export const ExampleUsage: React.FC = () => {
       header: "Name",
       searchable: true,
       interaction: (value, rowData) => {
-        console.log(value)
-        window.open(rowData.website, "_blank")
+        console.log(value);
+        window.open(rowData.website, "_blank");
       },
       render: (value) => <span className="font-medium">{value}</span>,
     },
@@ -167,7 +245,9 @@ export const ExampleUsage: React.FC = () => {
       key: "role",
       header: "Role",
       searchable: true,
-      render: (value) => <span className="font-semibold text-blue-600">{value}</span>,
+      render: (value) => (
+        <span className="font-semibold text-blue-600">{value}</span>
+      ),
     },
     {
       key: "actions",
@@ -181,11 +261,13 @@ export const ExampleUsage: React.FC = () => {
         </button>
       ),
     },
-  ]
+  ];
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Enhanced Dynamic Table Example</h1>
+      <h1 className="text-2xl font-bold mb-4">
+        Enhanced Dynamic Table Example
+      </h1>
       <div className="mb-4 flex space-x-2">
         <input
           type="text"
@@ -201,8 +283,11 @@ export const ExampleUsage: React.FC = () => {
           Custom Action
         </button>
       </div>
-      <DynamicTable data={sampleData} columns={columns} externalSearchTerm={externalSearchTerm} />
+      <DynamicTable
+        data={sampleData}
+        columns={columns}
+        externalSearchTerm={externalSearchTerm}
+      />
     </div>
-  )
-}
-
+  );
+};
