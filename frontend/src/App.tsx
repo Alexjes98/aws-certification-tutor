@@ -9,25 +9,19 @@ import Documents from "./pages/Documents";
 import SideBar from "./components/SideBar";
 function App() {
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
-  const [chatHistory, setChatHistory] = useState<string[]>([]);
 
   const toggleSidebar = () => {
     setIsSidebarExpanded(!isSidebarExpanded);
   };
 
-  const handleChatHistory = (message: string) => {
-    setChatHistory([...chatHistory, message]);
-  };
-
   return (
     <>
       <div className="flex row">
-        <button onClick={() => handleChatHistory("Hello")}>Click me</button>
         <div className="flex h-screen w-screen bg-gray-100 overflow-auto">
           <SideBar
             isExpanded={isSidebarExpanded}
             toggleSidebar={toggleSidebar}
-            chatHistory={chatHistory}
+            chatHistory={[]}
           />
           <Router>
             <Routes>
