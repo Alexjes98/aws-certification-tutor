@@ -1,11 +1,10 @@
 import os
 from constructs import Construct
 from aws_cdk import (
-    RemovalPolicy,
+    CfnOutput,
     Duration,
     aws_dynamodb as dynamodb,
     aws_s3 as s3,
-    aws_sqs as sqs,
     aws_lambda as lambda_,
     aws_iam as iam,
     aws_apigateway as apigateway,
@@ -15,33 +14,16 @@ from aws_cdk.aws_lambda import DockerImageFunction, DockerImageCode, Function
 
 
 class BackendConstruct(Construct):
-    sourceDocumentsBucket: s3.Bucket
     documentProcessingLambda: DockerImageFunction
     questionGenerationLambda: DockerImageFunction
     questionStoringLambda: Function
-    questionsTable: dynamodb.Table
     api_gateway_rest_api: apigateway.RestApi
     documentCrudLambda: lambda_.Function
     questionsCrudLambda: lambda_.Function
-    user_pool: cognito.UserPool
-    user_pool_client: cognito.UserPoolClient
     authorizer: apigateway.CognitoUserPoolsAuthorizer
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
-        super().__init__(scope, construct_id, **kwargs)
 
-        # Create S3 bucket
-        self.sourceDocumentsBucket = s3.Bucket(
-            self, "SourceDocumentsBucket",
-            encryption=s3.BucketEncryption.S3_MANAGED,
-            removal_policy=RemovalPolicy.DESTROY,
-            auto_delete_objects=True,
-        )
-        
-        self.questionsTable = dynamodb.Table(
-            self, "QuestionsTable",
-            partition_key=dynamodb.Attribute(name="question_id", type=dynamodb.AttributeType.STRING),
-            removal_policy=RemovalPolicy.DESTROY,
-        )
+    def __init__(self, scope: Construct, construct_id: str, source_documents_bucket: s3.Bucket, questions_table: dynamodb.Table, user_pool: cognito.UserPool, frontend_url: str, **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
 
         # Create document processing lambda
         self.documentProcessingLambda = DockerImageFunction(
@@ -54,7 +36,7 @@ class BackendConstruct(Construct):
             timeout=Duration.minutes(5),
         )
 
-        self.sourceDocumentsBucket.grant_read(self.documentProcessingLambda)
+        source_documents_bucket.grant_read(self.documentProcessingLambda)
 
         # Create question generation lambda
         self.questionGenerationLambda = DockerImageFunction(
@@ -78,8 +60,9 @@ class BackendConstruct(Construct):
             actions=["bedrock:InvokeModel"],
             resources=["*"]
         )
-        self.questionGenerationLambda.add_to_role_policy(bedrock_policy)
         
+        self.questionGenerationLambda.add_to_role_policy(bedrock_policy)
+
         # Create question storing lambda
         self.questionStoringLambda = Function(
             self, "QuestionStoringLambda",
@@ -87,12 +70,12 @@ class BackendConstruct(Construct):
             handler="index.lambda_handler",
             runtime=lambda_.Runtime.PYTHON_3_10,
             environment={
-                "QUESTIONS_TABLE_NAME": self.questionsTable.table_name
+                "QUESTIONS_TABLE_NAME": questions_table.table_name
             }
         )
 
-        self.questionsTable.grant_read_write_data(self.questionStoringLambda)
-        
+        questions_table.grant_read_write_data(self.questionStoringLambda)
+
         # Create Document CRUD Lambda
         self.documentCrudLambda = lambda_.Function(
             self, "DocumentCrudLambda",
@@ -100,13 +83,13 @@ class BackendConstruct(Construct):
             handler="index.lambda_handler",
             runtime=lambda_.Runtime.PYTHON_3_10,
             environment={
-                "SOURCE_BUCKET_NAME": self.sourceDocumentsBucket.bucket_name
+                "SOURCE_BUCKET_NAME": source_documents_bucket.bucket_name
             },
             timeout=Duration.seconds(30)
         )
 
         # Grant Document CRUD Lambda permissions to interact with S3 bucket
-        self.sourceDocumentsBucket.grant_read_write(self.documentCrudLambda)
+        source_documents_bucket.grant_read_write(self.documentCrudLambda)
 
         # Create Questions CRUD Lambda
         self.questionsCrudLambda = lambda_.Function(
@@ -115,72 +98,39 @@ class BackendConstruct(Construct):
             handler="index.lambda_handler",
             runtime=lambda_.Runtime.PYTHON_3_10,
             environment={
-                "QUESTIONS_TABLE_NAME": self.questionsTable.table_name
+                "QUESTIONS_TABLE_NAME": questions_table.table_name
             },
             timeout=Duration.seconds(30)
         )
 
         # Grant Questions CRUD Lambda permissions to interact with DynamoDB table
-        self.questionsTable.grant_read_write_data(self.questionsCrudLambda)
-        
-        # Cognito User Pool
-        self.user_pool = cognito.UserPool(
-            self, "WebAppUserPool",
-            user_pool_name="WebAppUserPool",
-            self_sign_up_enabled=True,
-            sign_in_aliases=cognito.SignInAliases(
-                email=True,
-                username=True
-            ),
-            standard_attributes=cognito.StandardAttributes(
-                email=cognito.StandardAttribute(required=True, mutable=True)
-            ),
-            password_policy=cognito.PasswordPolicy(
-                min_length=8,
-                require_lowercase=True,
-                require_digits=True,
-                require_uppercase=True,
-                require_symbols=True
-            ),
-            account_recovery=cognito.AccountRecovery.EMAIL_ONLY
-        )
-        
-        # Cognito User Pool Client
-        self.user_pool_client = self.user_pool.add_client(
-            "WebAppUserPoolClient",
-            auth_flows=cognito.AuthFlow(
-                admin_user_password=True,
-                user_password=True,
-                custom=True,
-                user_srp=True
-            ),
-            o_auth=cognito.OAuthSettings(
-                callback_urls=["http://localhost:3000", "https://yourdomain.com"],
-                logout_urls=["http://localhost:3000", "https://yourdomain.com"]
-            )
-        )
-        
+        questions_table.grant_read_write_data(self.questionsCrudLambda)
+
         # Cognito Authorizer for API Gateway
         self.authorizer = apigateway.CognitoUserPoolsAuthorizer(
             self, "APIGatewayAuthorizer",
-            cognito_user_pools=[self.user_pool]
+            cognito_user_pools=[user_pool]
         )
-        
+
         # Create API Gateway
         self.api_gateway_rest_api = apigateway.RestApi(
             self, "ApiGateway",
             rest_api_name="AWS Certification Tutor API",
             description="API for AWS Certification Tutor",
             default_cors_preflight_options=apigateway.CorsOptions(
-                allow_origins=apigateway.Cors.ALL_ORIGINS,
+                allow_origins=["http://localhost:5173", frontend_url],
                 allow_methods=apigateway.Cors.ALL_METHODS,
-                allow_headers=["Content-Type", "Authorization", "X-Amz-Date", "X-Api-Key"]
+                allow_headers=["Content-Type", "Authorization",
+                               "X-Amz-Date", "X-Api-Key"],
+                allow_credentials=True
             )
         )
 
         # Create API resources
-        documents_resource = self.api_gateway_rest_api.root.add_resource("documents")
-        questions_resource = self.api_gateway_rest_api.root.add_resource("questions")
+        documents_resource = self.api_gateway_rest_api.root.add_resource(
+            "documents")
+        questions_resource = self.api_gateway_rest_api.root.add_resource(
+            "questions")
 
         # Document CRUD endpoints
         documents_resource.add_method(
@@ -240,4 +190,40 @@ class BackendConstruct(Construct):
             apigateway.LambdaIntegration(self.questionsCrudLambda),
             authorizer=self.authorizer,
             authorization_type=apigateway.AuthorizationType.COGNITO
+        )
+
+        CfnOutput(
+            self, "DocumentProcessingLambdaFunctionName",
+            value=self.documentProcessingLambda.function_name,
+            description="Name of the document processing Lambda function"
+        )
+
+        CfnOutput(
+            self, "QuestionGenerationLambdaFunctionName",
+            value=self.questionGenerationLambda.function_name,
+            description="Name of the question generation Lambda function"
+        )
+
+        CfnOutput(
+            self, "QuestionStoringLambdaFunctionName",
+            value=self.questionStoringLambda.function_name,
+            description="Name of the question storing Lambda function"
+        )
+
+        CfnOutput(
+            self, "DocumentCrudLambdaFunctionName",
+            value=self.documentCrudLambda.function_name,
+            description="Name of the document CRUD Lambda function"
+        )
+
+        CfnOutput(
+            self, "QuestionsCrudLambdaFunctionName",
+            value=self.questionsCrudLambda.function_name,
+            description="Name of the questions CRUD Lambda function"
+        )
+
+        CfnOutput(
+            self, "ApiGatewayUrl",
+            value=self.api_gateway_rest_api.url,
+            description="URL of the API Gateway"
         )
